@@ -1,0 +1,4 @@
+app name: Vdh_youtube_downloader+
+Version: 1.0 
+DevelopBy: vdh productions. 
+Thanks for using the software. 

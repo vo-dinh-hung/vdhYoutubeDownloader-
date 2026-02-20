@@ -43,18 +43,16 @@ GUICtrlCreateLabel("Press the Alt key to go the help menu, then press tab to qui
 GUICtrlSetFont(-1, 14, 800)
 GUICtrlSetColor(-1, 0xFFFFFF)
 
-Global $btn_Menu_DL = GUICtrlCreateButton("YouTube &Downloader", 50, 70, 200, 40)
-Global $btn_Menu_PL = GUICtrlCreateButton("YouTube &Player", 50, 120, 200, 40)
-Global $btn_Menu_SC = GUICtrlCreateButton("&Search YouTube", 50, 170, 200, 40)
+Global $btn_Menu_DL = GUICtrlCreateButton("&Download YouTube link", 50, 70, 200, 40)
+Global $btn_Menu_PL = GUICtrlCreateButton("&Play YouTube link", 50, 120, 200, 40)
+Global $btn_Menu_SC = GUICtrlCreateButton("&Search in YouTube", 50, 170, 200, 40)
 
-; --- PHẦN SỬA ĐỔI MENU ---
 Global $menu = GUICtrlCreateMenu("Help")
 Global $menu_about = GUICtrlCreateMenuItem("&About", $menu)
 Global $menu_readme = GUICtrlCreateMenuItem("&Read Me", $menu)
 Global $menu_contact = GUICtrlCreateMenuItem("&Contact", $menu)
 Global $menu_sep = GUICtrlCreateMenuItem("", $menu) ; Dòng kẻ ngang
 Global $menu_exit = GUICtrlCreateMenuItem("E&xit", $menu)
-; -------------------------
 
 GUISetState(@SW_SHOW, $mainform)
 
@@ -74,14 +72,12 @@ While 1
         Case $btn_Menu_SC
             _ShowSearch()
 
-        ; --- XỬ LÝ SỰ KIỆN MENU MỚI ---
         Case $menu_about
             _Show_About_Window()
         Case $menu_readme
             _Show_Readme_Window()
         Case $menu_contact
             _Show_Contact_Window()
-        ; ------------------------------
     EndSwitch
 WEnd
 
@@ -142,8 +138,13 @@ Func _ShowDownloader()
                         $sFmt = "-f bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
                     EndIf
 
+                    Local $sExtraArgs = ""
+                    If StringInStr($url, "watch?v=") And StringInStr($url, "list=") Then
+                        $sExtraArgs = " --no-playlist"
+                    EndIf
+
                     GUICtrlSetState($btn_start_dl, $GUI_DISABLE)
-                    RunWait(@ComSpec & ' /c ""' & $YT_DLP_PATH & '" ' & $sFmt & ' -o "download/%(title)s.%(ext)s" "' & $url & '""', @ScriptDir, @SW_SHOW)
+                    RunWait(@ComSpec & ' /c ""' & $YT_DLP_PATH & '" ' & $sFmt & $sExtraArgs & ' -o "download/%(title)s.%(ext)s" "' & $url & '""', @ScriptDir, @SW_SHOW)
                     GUICtrlSetState($btn_start_dl, $GUI_ENABLE)
                     MsgBox(64, "Info", "Download Complete!")
                 EndIf
@@ -287,7 +288,7 @@ Func _SearchYouTube($sKeyword, $bAppend)
                 $sLastTitle = StringTrimLeft($sLine, 2)
             ElseIf StringLeft($sLine, 2) = "I:" And $sLastTitle <> "" Then
                 Local $sId = StringTrimLeft($sLine, 2)
-                
+
                 $iTotalLoaded += 1
                 _GUICtrlListBox_AddString($lst_results, $iTotalLoaded & ". " & $sLastTitle)
 
@@ -384,6 +385,15 @@ Func _PlayLoop($iCurrentIndex)
 
         Local $iPID_Play = Run('"' & $FFPLAY_PATH & '" -window_title "' & $sTitle & '" -autoexit -infbuf -x 640 -y 360 "' & $sUrl & '"', @ScriptDir, @SW_SHOW)
 
+        Local $hPlayingGui = GUICreate("Now Playing", 300, 70, -1, -1, BitOR($WS_POPUP, $WS_BORDER), $WS_EX_TOPMOST)
+        GUICtrlCreateLabel("Playing:", 10, 5, 280, 20)
+        GUICtrlSetColor(-1, 0xFFFFFF)
+        GUICtrlCreateLabel(StringLeft($sTitle, 40) & "...", 10, 25, 280, 40)
+        GUICtrlSetFont(-1, 10, 600)
+        GUICtrlSetColor(-1, 0x00FF00) ; Green text
+        GUISetBkColor(0x222222, $hPlayingGui)
+        GUISetState(@SW_SHOW, $hPlayingGui)
+
         Local $sAction = ""
         While ProcessExists($iPID_Play)
             If _IsPressed("11", $dll) Then ; CTRL Key
@@ -412,6 +422,10 @@ Func _PlayLoop($iCurrentIndex)
             EndIf
             Sleep(50)
         WEnd
+
+        ; --- Xóa hộp thoại Playing khi video tắt ---
+        GUIDelete($hPlayingGui)
+        ; -------------------------------------------
 
         If $sAction = "NEXT" Then
             $iCurrentIndex += 1
@@ -473,8 +487,14 @@ Func playmedia($url)
     $dlink = StringStripWS($dlink, 3)
 
     If $dlink <> "" Then
-        Local $sCmd = '"' & $FFPLAY_PATH & '" -autoexit -window_title "Tech Tube Player" -infbuf -x 640 -y 360 "' & $dlink & '"'
+        Local $sCmd = '"' & $FFPLAY_PATH & '" -autoexit -window_title "YouTube Player" -infbuf -x 640 -y 360 "' & $dlink & '"'
         Local $pid_play = Run($sCmd, @ScriptDir, @SW_SHOW)
+
+        Local $hPlayingGui = GUICreate("Playing", 250, 50, -1, -1, BitOR($WS_POPUP, $WS_BORDER), $WS_EX_TOPMOST)
+        GUICtrlCreateLabel("Now Playing Video...", 10, 15, 230, 20, $SS_CENTER)
+        GUICtrlSetColor(-1, 0xFFFFFF)
+        GUISetBkColor(0x222222, $hPlayingGui)
+        GUISetState(@SW_SHOW, $hPlayingGui)
 
         While ProcessExists($pid_play)
             If _IsPressed("24", $dll) Then ; HOME
@@ -492,6 +512,8 @@ Func playmedia($url)
             EndIf
             Sleep(50)
         WEnd
+
+        GUIDelete($hPlayingGui)
     Else
         MsgBox(16, "Error", "Cannot get video stream from this link.")
     EndIf

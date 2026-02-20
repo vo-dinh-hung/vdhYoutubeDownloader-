@@ -23,6 +23,7 @@ Global $edit, $cbo_dl_format, $btn_start_dl, $openbtn, $paste
 Global $linkedit, $play_btn, $online_play_btn
 Global $inp_search, $btn_search_go, $lst_results
 Global $hCurrentSubGui = 0
+Global $hResultsGui = 0 ; Biến mới cho cửa sổ kết quả
 
 If Not FileExists("download") Then DirCreate("download")
 
@@ -45,7 +46,7 @@ GUICtrlSetColor(-1, 0xFFFFFF)
 
 Global $btn_Menu_DL = GUICtrlCreateButton("&Download YouTube link", 50, 70, 200, 40)
 Global $btn_Menu_PL = GUICtrlCreateButton("&Play YouTube link", 50, 120, 200, 40)
-Global $btn_Menu_SC = GUICtrlCreateButton("&Search in YouTube", 50, 170, 200, 40)
+Global $btn_Menu_SC = GUICtrlCreateButton("&Search on YouTube", 50, 170, 200, 40)
 
 Global $menu = GUICtrlCreateMenu("Help")
 Global $menu_about = GUICtrlCreateMenuItem("&About", $menu)
@@ -187,14 +188,13 @@ EndFunc
 
 Func _ShowSearch()
     GUISetState(@SW_HIDE, $mainform)
-    $hCurrentSubGui = GUICreate("Search", 400, 400)
+    $hCurrentSubGui = GUICreate("Search", 400, 80)
     GUISetBkColor($COLOR_BLUE)
 
-    GUICtrlCreateLabel("&Enter keyword to search:", 10, 10, 380, 20)
+    GUICtrlCreateLabel("&Enter keyword to search:", 10, 15, 80, 20)
     GUICtrlSetColor(-1, 0xFFFFFF)
-    $inp_search = GUICtrlCreateInput("", 10, 30, 300, 20)
-    $btn_search_go = GUICtrlCreateButton("&Search", 320, 30, 70, 20)
-    $lst_results = GUICtrlCreateList("", 10, 60, 380, 300, BitOR($LBS_NOTIFY, $WS_VSCROLL, $WS_BORDER))
+    $inp_search = GUICtrlCreateInput("", 100, 12, 210, 20)
+    $btn_search_go = GUICtrlCreateButton("&Search", 320, 10, 70, 25)
 
     GUISetState(@SW_SHOW, $hCurrentSubGui)
 
@@ -204,22 +204,13 @@ Func _ShowSearch()
         If _IsPressed("0D", $dll) And WinActive($hCurrentSubGui) Then
             If ControlGetHandle($hCurrentSubGui, "", ControlGetFocus($hCurrentSubGui)) = GUICtrlGetHandle($inp_search) Then
                 $sCurrentKeyword = GUICtrlRead($inp_search)
-                If $sCurrentKeyword <> "" Then _SearchYouTube($sCurrentKeyword, False)
-                Do
-                    Sleep(10)
-                Until Not _IsPressed("0D", $dll)
-            ElseIf ControlGetHandle($hCurrentSubGui, "", ControlGetFocus($hCurrentSubGui)) = GUICtrlGetHandle($lst_results) Then
-                _ShowContextMenu()
+                If $sCurrentKeyword <> "" Then
+                    _ShowSearchResultsWindow($sCurrentKeyword)
+                EndIf
                 Do
                     Sleep(10)
                 Until Not _IsPressed("0D", $dll)
             EndIf
-        EndIf
-
-        Local $iIndex = _GUICtrlListBox_GetCurSel($lst_results)
-        Local $iCount = _GUICtrlListBox_GetCount($lst_results)
-        If $iIndex <> -1 And $iIndex = $iCount - 1 And Not $bIsSearching And $sCurrentKeyword <> "" And Not _IsPressed("0D", $dll) And Not $bEndReached Then
-            _SearchYouTube($sCurrentKeyword, True)
         EndIf
 
         Switch $nMsg
@@ -231,7 +222,48 @@ Func _ShowSearch()
 
             Case $btn_search_go
                 $sCurrentKeyword = GUICtrlRead($inp_search)
-                If $sCurrentKeyword <> "" Then _SearchYouTube($sCurrentKeyword, False)
+                If $sCurrentKeyword <> "" Then
+                    _ShowSearchResultsWindow($sCurrentKeyword)
+                EndIf
+        EndSwitch
+    WEnd
+EndFunc
+
+Func _ShowSearchResultsWindow($sKeyword)
+    GUISetState(@SW_HIDE, $hCurrentSubGui)
+
+    $hResultsGui = GUICreate("Search Results", 400, 400)
+    GUISetBkColor($COLOR_BLUE)
+    $lst_results = GUICtrlCreateList("", 10, 10, 380, 380, BitOR($LBS_NOTIFY, $WS_VSCROLL, $WS_BORDER))
+
+    GUISetState(@SW_SHOW, $hResultsGui)
+
+    _SearchYouTube($sKeyword, False)
+
+    While 1
+        Local $nMsg = GUIGetMsg()
+
+        If _IsPressed("0D", $dll) And WinActive($hResultsGui) Then
+            If ControlGetHandle($hResultsGui, "", ControlGetFocus($hResultsGui)) = GUICtrlGetHandle($lst_results) Then
+                _ShowContextMenu()
+                Do
+                    Sleep(10)
+                Until Not _IsPressed("0D", $dll)
+            EndIf
+        EndIf
+
+        Local $iIndex = _GUICtrlListBox_GetCurSel($lst_results)
+        Local $iCount = _GUICtrlListBox_GetCount($lst_results)
+        If $iIndex <> -1 And $iIndex = $iCount - 1 And Not $bIsSearching And $sKeyword <> "" And Not _IsPressed("0D", $dll) And Not $bEndReached Then
+            _SearchYouTube($sKeyword, True)
+        EndIf
+
+        Switch $nMsg
+            Case $GUI_EVENT_CLOSE
+                GUIDelete($hResultsGui)
+                $hResultsGui = 0
+                GUISetState(@SW_SHOW, $hCurrentSubGui)
+                Return
         EndSwitch
     WEnd
 EndFunc
@@ -241,7 +273,7 @@ Func _SearchYouTube($sKeyword, $bAppend)
 
     Local $hWaitGui = 0
     If Not $bAppend Then
-        $hWaitGui = GUICreate("Searching...", 250, 80, -1, -1, BitOR($WS_POPUP, $WS_BORDER), BitOR($WS_EX_TOPMOST, $WS_EX_TOOLWINDOW), $hCurrentSubGui)
+        $hWaitGui = GUICreate("Searching...", 250, 80, -1, -1, BitOR($WS_POPUP, $WS_BORDER), BitOR($WS_EX_TOPMOST, $WS_EX_TOOLWINDOW), $hResultsGui)
         GUICtrlCreateLabel("Searching YouTube for: " & StringLeft($sKeyword, 20) & "...", 10, 25, 230, 20, $SS_CENTER)
         GUISetBkColor(0xFFFFFF, $hWaitGui)
         GUISetState(@SW_SHOW, $hWaitGui)
@@ -313,7 +345,7 @@ Func _SearchYouTube($sKeyword, $bAppend)
     If Not $bAppend And IsHWnd($hWaitGui) Then
         GUIDelete($hWaitGui)
         GUISetCursor(2, 0)
-        ControlFocus($hCurrentSubGui, "", $lst_results)
+        ControlFocus($hResultsGui, "", $lst_results)
     EndIf
 
     $bIsSearching = False
@@ -325,7 +357,8 @@ Func _ShowContextMenu()
 
     Local $sTitle = $aSearchTitles[$iIndex + 1]
 
-    Local $hMenuGui = GUICreate("Options", 250, 200, -1, -1, BitOR($WS_CAPTION, $WS_POPUP, $WS_SYSMENU), -1, $hCurrentSubGui)
+    ; Popup menu hiện lên trên cửa sổ kết quả ($hResultsGui)
+    Local $hMenuGui = GUICreate("Options", 250, 200, -1, -1, BitOR($WS_CAPTION, $WS_POPUP, $WS_SYSMENU), -1, $hResultsGui)
     GUISetBkColor(0xFFFFFF)
     GUICtrlCreateLabel(StringLeft($sTitle, 35) & "...", 10, 10, 230, 20)
 
@@ -443,7 +476,7 @@ EndFunc
 
 Func _ShowDownloadDialog($sID)
     Local $sUrl = "https://www.youtube.com/watch?v=" & $sID
-    Local $hDLGui = GUICreate("Download Options", 300, 150, -1, -1, -1, -1) ; Floating above desktop or relative to search
+    Local $hDLGui = GUICreate("Download Options", 300, 150, -1, -1, -1, -1)
     GUICtrlCreateLabel("Select Format:", 10, 20, 280, 20)
     Local $cboFormat = GUICtrlCreateCombo("Video MP4 (Best)", 10, 40, 280, 20)
     GUICtrlSetData(-1, "Video WebM|Audio MP3|Audio M4A|Audio WAV")
@@ -528,8 +561,6 @@ Func _ReportStatus($sText)
     Sleep(1000)
     ToolTip("")
 EndFunc
-
-; --- CÁC HÀM MỚI THAY THẾ CHO FUNC ABOUT() CŨ ---
 
 Func _Show_About_Window()
     Local $gui = GUICreate("About", 400, 300)

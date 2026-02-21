@@ -24,6 +24,8 @@ Global $linkedit, $play_btn, $online_play_btn
 Global $inp_search, $btn_search_go, $lst_results
 Global $hCurrentSubGui = 0
 Global $hResultsGui = 0 ; Biến mới cho cửa sổ kết quả
+Global $hFavoritesGui = 0 ; Biến mới cho cửa sổ yêu thích
+Global $FAVORITES_FILE = @ScriptDir & "\favorites.dat"
 
 If Not FileExists("download") Then DirCreate("download")
 
@@ -47,6 +49,7 @@ GUICtrlSetColor(-1, 0xFFFFFF)
 Global $btn_Menu_DL = GUICtrlCreateButton("&Download YouTube link", 50, 70, 200, 40)
 Global $btn_Menu_PL = GUICtrlCreateButton("&Play YouTube link", 50, 120, 200, 40)
 Global $btn_Menu_SC = GUICtrlCreateButton("&Search on YouTube", 50, 170, 200, 40)
+Global $btn_Menu_FV = GUICtrlCreateButton("&Favorite Video", 50, 210, 200, 40)
 
 Global $menu = GUICtrlCreateMenu("Help")
 Global $menu_about = GUICtrlCreateMenuItem("&About", $menu)
@@ -74,6 +77,9 @@ While 1
 
         Case $btn_Menu_SC
             _ShowSearch()
+
+        Case $btn_Menu_FV
+            _ShowFavorites()
 
         Case $menu_about
             _Show_About_Window()
@@ -353,7 +359,7 @@ Func _SearchYouTube($sKeyword, $bAppend)
     $bIsSearching = False
 EndFunc
 
-Func _ShowContextMenu()
+Func _ShowContextMenu($bIsFavContext = False)
     Local $iIndex = _GUICtrlListBox_GetCurSel($lst_results)
     If $iIndex = -1 Then Return
 
@@ -369,6 +375,13 @@ Func _ShowContextMenu()
     Local $btn_Web = GUICtrlCreateButton("Open in Browser", 10, 105, 230, 30)
     Local $btn_Copy = GUICtrlCreateButton("Copy Link", 10, 140, 230, 30)
 
+    Local $btn_Fav
+    If $bIsFavContext Then
+        $btn_Fav = GUICtrlCreateButton("Remove from Favorite", 10, 175, 230, 30)
+    Else
+        $btn_Fav = GUICtrlCreateButton("Add to Favorite", 10, 175, 230, 30)
+    EndIf
+
     GUISetState(@SW_SHOW, $hMenuGui)
 
     While 1
@@ -376,6 +389,17 @@ Func _ShowContextMenu()
         Switch $nMsg
             Case $GUI_EVENT_CLOSE
                 GUIDelete($hMenuGui)
+                ExitLoop
+            Case $btn_Fav
+                GUIDelete($hMenuGui)
+                If $bIsFavContext Then
+                    If _RemoveFavorite($aSearchIds[$iIndex + 1]) Then
+                        MsgBox(64, "Success", "Removed from favorites successfully!")
+                        Return "REFRESH"
+                    EndIf
+                Else
+                    _AddFavorite($aSearchIds[$iIndex + 1], $sTitle)
+                EndIf
                 ExitLoop
             Case $btn_Play
                 GUIDelete($hMenuGui)
@@ -565,32 +589,64 @@ Func _ReportStatus($sText)
 EndFunc
 
 Func _Show_About_Window()
-    Local $gui = GUICreate("About", 400, 300)
+    Local $gui = GUICreate("About", 520, 300)
     GUISetBkColor($COLOR_BLUE)
     Local $txtAbout = FileExists(@ScriptDir & "\docs\about.txt") ? FileRead(@ScriptDir & "\docs\about.txt") : "VDH YouTube Downloader"
-    GUICtrlCreateEdit($txtAbout, 10, 10, 380, 280, BitOR($ES_READONLY, $WS_VSCROLL))
+    Local $idEdit = GUICtrlCreateEdit($txtAbout, 10, 10, 400, 280, BitOR($ES_READONLY, $WS_VSCROLL))
+    Local $btn_Close = GUICtrlCreateButton("&Close", 420, 10, 80, 35)
+
+    ; Thiết lập phím tắt để điều hướng giữa các thành phần
+    Local $dummy_tab = GUICtrlCreateDummy()
+    Local $aAccel[2][2] = [["{TAB}", $dummy_tab], ["+{TAB}", $dummy_tab]]
+    GUISetAccelerators($aAccel, $gui)
+
     GUISetState(@SW_SHOW, $gui)
 
     While 1
-        If GUIGetMsg() = $GUI_EVENT_CLOSE Then
-            GUIDelete($gui)
-            ExitLoop
-        EndIf
+        Local $msg = GUIGetMsg()
+        Switch $msg
+            Case $GUI_EVENT_CLOSE, $btn_Close
+                GUIDelete($gui)
+                ExitLoop
+            Case $dummy_tab
+                ; Chuyển đổi tiêu điểm giữa nút Close và ô nhập liệu
+                If ControlGetHandle($gui, "", ControlGetFocus($gui)) = GUICtrlGetHandle($idEdit) Then
+                    ControlFocus($gui, "", $btn_Close)
+                Else
+                    ControlFocus($gui, "", $idEdit)
+                EndIf
+        EndSwitch
     WEnd
 EndFunc
 
 Func _Show_Readme_Window()
-    Local $gui = GUICreate("Read Me", 400, 300)
+    Local $gui = GUICreate("Read Me", 520, 300)
     GUISetBkColor($COLOR_BLUE)
     Local $txtRead = FileExists(@ScriptDir & "\docs\readme.txt") ? FileRead(@ScriptDir & "\docs\readme.txt") : "Read Me"
-    GUICtrlCreateEdit($txtRead, 10, 10, 380, 280, BitOR($ES_READONLY, $WS_VSCROLL))
+    Local $idEdit = GUICtrlCreateEdit($txtRead, 10, 10, 400, 280, BitOR($ES_READONLY, $WS_VSCROLL))
+    Local $btn_Close = GUICtrlCreateButton("&Close", 420, 10, 80, 35)
+
+    ; Thiết lập phím tắt để điều hướng giữa các thành phần
+    Local $dummy_tab = GUICtrlCreateDummy()
+    Local $aAccel[2][2] = [["{TAB}", $dummy_tab], ["+{TAB}", $dummy_tab]]
+    GUISetAccelerators($aAccel, $gui)
+
     GUISetState(@SW_SHOW, $gui)
 
     While 1
-        If GUIGetMsg() = $GUI_EVENT_CLOSE Then
-            GUIDelete($gui)
-            ExitLoop
-        EndIf
+        Local $msg = GUIGetMsg()
+        Switch $msg
+            Case $GUI_EVENT_CLOSE, $btn_Close
+                GUIDelete($gui)
+                ExitLoop
+            Case $dummy_tab
+                ; Chuyển đổi tiêu điểm giữa nút Close và ô nhập liệu
+                If ControlGetHandle($gui, "", ControlGetFocus($gui)) = GUICtrlGetHandle($idEdit) Then
+                    ControlFocus($gui, "", $btn_Close)
+                Else
+                    ControlFocus($gui, "", $idEdit)
+                EndIf
+        EndSwitch
     WEnd
 EndFunc
 
@@ -624,6 +680,115 @@ Func _GetYoutubeID($url)
         $id = StringRegExpReplace($url, ".*/([^?]*).*", "$1")
     EndIf
     Return $id
+EndFunc
+
+Func _AddFavorite($sID, $sTitle)
+    Local $hFile = FileOpen($FAVORITES_FILE, 1 + 8) ; 1 = Append, 8 = Create directory if not exists
+    If $hFile = -1 Then
+        MsgBox(16, "Error", "Cannot open favorites file.")
+        Return
+    EndIf
+    FileWriteLine($hFile, $sID & "|" & $sTitle)
+    FileClose($hFile)
+    MsgBox(64, "Success", "Added to favorites successfully!")
+EndFunc
+
+Func _RemoveFavorite($sID)
+    Local $sContent = FileRead($FAVORITES_FILE)
+    Local $aLines = StringSplit(StringStripCR($sContent), @LF)
+    Local $sNewContent = ""
+    Local $bRemoved = False
+
+    For $i = 1 To $aLines[0]
+        If $aLines[$i] = "" Then ContinueLoop
+        Local $aParts = StringSplit($aLines[$i], "|")
+        If $aParts[0] >= 1 And $aParts[1] = $sID Then
+            $bRemoved = True
+            ContinueLoop
+        EndIf
+        $sNewContent &= $aLines[$i] & @CRLF
+    Next
+
+    If $bRemoved Then
+        Local $hFile = FileOpen($FAVORITES_FILE, 2) ; 2 = Write mode (erase existing)
+        FileWrite($hFile, $sNewContent)
+        FileClose($hFile)
+        Return True
+    EndIf
+    Return False
+EndFunc
+
+Func _ShowFavorites()
+    GUISetState(@SW_HIDE, $mainform)
+
+    $hFavoritesGui = GUICreate("Favorite Videos", 400, 400)
+    GUISetBkColor($COLOR_BLUE)
+    $lst_results = GUICtrlCreateList("", 10, 10, 380, 380, BitOR($LBS_NOTIFY, $WS_VSCROLL, $WS_BORDER))
+
+    GUISetState(@SW_SHOW, $hFavoritesGui)
+
+    _LoadFavorites()
+
+    While 1
+        Local $nMsg = GUIGetMsg()
+
+        If _IsPressed("0D", $dll) And WinActive($hFavoritesGui) Then
+            If ControlGetHandle($hFavoritesGui, "", ControlGetFocus($hFavoritesGui)) = GUICtrlGetHandle($lst_results) Then
+                Local $oldResultsGui = $hResultsGui
+                $hResultsGui = $hFavoritesGui
+                Local $res = _ShowContextMenu(True)
+                $hResultsGui = $oldResultsGui
+                
+                If $res = "REFRESH" Then
+                    _LoadFavorites()
+                EndIf
+
+                Do
+                    Sleep(10)
+                Until Not _IsPressed("0D", $dll)
+            EndIf
+        EndIf
+
+        Switch $nMsg
+            Case $GUI_EVENT_CLOSE
+                GUIDelete($hFavoritesGui)
+                $hFavoritesGui = 0
+                GUISetState(@SW_SHOW, $mainform)
+                Return
+        EndSwitch
+    WEnd
+EndFunc
+
+Func _LoadFavorites()
+    GUICtrlSetData($lst_results, "")
+    Local $hFile = FileOpen($FAVORITES_FILE, 0) ; 0 = Read
+    Global $aSearchIds[1]
+    Global $aSearchTitles[1]
+    $iTotalLoaded = 0
+    $bEndReached = True ; No pagination for favorites yet
+
+    If $hFile <> -1 Then
+        While 1
+            Local $sLine = FileReadLine($hFile)
+            If @error = -1 Then ExitLoop
+            Local $aParts = StringSplit($sLine, "|")
+            If $aParts[0] >= 2 Then
+                Local $sID = $aParts[1]
+                Local $sTitle = $aParts[2]
+                $iTotalLoaded += 1
+                _GUICtrlListBox_AddString($lst_results, $iTotalLoaded & ". " & $sTitle)
+                ReDim $aSearchIds[$iTotalLoaded + 1]
+                ReDim $aSearchTitles[$iTotalLoaded + 1]
+                $aSearchIds[$iTotalLoaded] = $sID
+                $aSearchTitles[$iTotalLoaded] = $sTitle
+            EndIf
+        WEnd
+        FileClose($hFile)
+    EndIf
+
+    If $iTotalLoaded = 0 Then
+        MsgBox(64, "Info", "No favorite videos yet.")
+    EndIf
 EndFunc
 
 Func _AutoDetectClipboardLink()

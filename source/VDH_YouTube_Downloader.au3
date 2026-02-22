@@ -8,7 +8,6 @@
 
 Global $version = "1.0"
 Global $YT_DLP_PATH = @ScriptDir & "\lib\yt-dlp.exe"
-Global $FFPLAY_PATH = @ScriptDir & "\lib\ffplay.exe"
 Global $dll = DllOpen("user32.dll")
 
 Global $aSearchIds[1]
@@ -17,6 +16,7 @@ Global $sCurrentKeyword = ""
 Global $iTotalLoaded = 0
 Global $bIsSearching = False
 Global $bEndReached = False
+Global $g_bAutoPlay = True
 
 Global $mainform
 Global $edit, $cbo_dl_format, $btn_start_dl, $openbtn, $paste
@@ -170,8 +170,9 @@ Func _ShowPlayer()
     GUICtrlSetColor(-1, 0xFFFFFF)
     $linkedit = GUICtrlCreateInput("", 10, 50, 380, 20)
 
-    $play_btn = GUICtrlCreateButton("Play (&Default Player)", 50, 100, 300, 40)
-    $online_play_btn = GUICtrlCreateButton("Play in &Browser", 50, 160, 300, 40)
+    $play_btn = GUICtrlCreateButton("Play (&Default Player)", 50, 80, 300, 35)
+    $audio_play_btn = GUICtrlCreateButton("Play as &Audio", 50, 125, 300, 35)
+    $online_play_btn = GUICtrlCreateButton("Play in &Browser", 50, 170, 300, 35)
 
     GUISetState(@SW_SHOW, $hGuiPL)
 
@@ -186,6 +187,10 @@ Func _ShowPlayer()
             Case $play_btn
                 Local $input_text = GUICtrlRead($linkedit)
                 If $input_text <> "" Then playmedia($input_text)
+
+            Case $audio_play_btn
+                Local $input_text = GUICtrlRead($linkedit)
+                If $input_text <> "" Then playaudio($input_text)
 
             Case $online_play_btn
                 Local $input_text = GUICtrlRead($linkedit)
@@ -240,9 +245,16 @@ EndFunc
 Func _ShowSearchResultsWindow($sKeyword)
     GUISetState(@SW_HIDE, $hCurrentSubGui)
 
-    $hResultsGui = GUICreate("Search Results", 400, 400)
+    $hResultsGui = GUICreate("Search Results", 400, 440)
     GUISetBkColor($COLOR_BLUE)
     $lst_results = GUICtrlCreateList("", 10, 10, 380, 380, BitOR($LBS_NOTIFY, $WS_VSCROLL, $WS_BORDER))
+    Local $btn_return_main = GUICtrlCreateButton("&return to main window", 10, 400, 380, 30)
+
+    Local $dummy_copy = GUICtrlCreateDummy()
+    Local $dummy_browser = GUICtrlCreateDummy()
+    Local $dummy_channel = GUICtrlCreateDummy()
+    Local $aAccel[3][2] = [["^k", $dummy_copy], ["!b", $dummy_browser], ["!g", $dummy_channel]]
+    GUISetAccelerators($aAccel, $hResultsGui)
 
     GUISetState(@SW_SHOW, $hResultsGui)
 
@@ -272,6 +284,17 @@ Func _ShowSearchResultsWindow($sKeyword)
                 $hResultsGui = 0
                 GUISetState(@SW_SHOW, $hCurrentSubGui)
                 Return
+            Case $btn_return_main
+                GUIDelete($hResultsGui)
+                $hResultsGui = 0
+                GUISetState(@SW_SHOW, $mainform)
+                Return
+            Case $dummy_copy
+                _Action_CopyLink(_GUICtrlListBox_GetCurSel($lst_results))
+            Case $dummy_browser
+                _Action_OpenBrowser(_GUICtrlListBox_GetCurSel($lst_results))
+            Case $dummy_channel
+                _Action_GoChannel(_GUICtrlListBox_GetCurSel($lst_results))
         EndSwitch
     WEnd
 EndFunc
@@ -366,20 +389,22 @@ Func _ShowContextMenu($bIsFavContext = False)
     Local $sTitle = $aSearchTitles[$iIndex + 1]
 
     ; Popup menu hiện lên trên cửa sổ kết quả ($hResultsGui)
-    Local $hMenuGui = GUICreate("Options", 250, 200, -1, -1, BitOR($WS_CAPTION, $WS_POPUP, $WS_SYSMENU), -1, $hResultsGui)
+    Local $hMenuGui = GUICreate("Options", 250, 270, -1, -1, BitOR($WS_CAPTION, $WS_POPUP, $WS_SYSMENU), -1, $hResultsGui)
     GUISetBkColor(0xFFFFFF)
     GUICtrlCreateLabel(StringLeft($sTitle, 35) & "...", 10, 10, 230, 20)
 
     Local $btn_Play = GUICtrlCreateButton("Play", 10, 35, 230, 30)
-    Local $btn_DL = GUICtrlCreateButton("Download", 10, 70, 230, 30)
-    Local $btn_Web = GUICtrlCreateButton("Open in Browser", 10, 105, 230, 30)
-    Local $btn_Copy = GUICtrlCreateButton("Copy Link", 10, 140, 230, 30)
+    Local $btn_PlayAudio = GUICtrlCreateButton("Play as audio", 10, 70, 230, 30)
+    Local $btn_DL = GUICtrlCreateButton("Download", 10, 105, 230, 30)
+    Local $btn_Channel = GUICtrlCreateButton("Go to channel", 10, 140, 230, 30)
+    Local $btn_Web = GUICtrlCreateButton("Open in Browser", 10, 175, 230, 30)
+    Local $btn_Copy = GUICtrlCreateButton("Copy Link", 10, 205, 230, 30)
 
     Local $btn_Fav
     If $bIsFavContext Then
-        $btn_Fav = GUICtrlCreateButton("Remove from Favorite", 10, 175, 230, 30)
+        $btn_Fav = GUICtrlCreateButton("Remove from Favorite", 10, 235, 230, 30)
     Else
-        $btn_Fav = GUICtrlCreateButton("Add to Favorite", 10, 175, 230, 30)
+        $btn_Fav = GUICtrlCreateButton("Add to Favorite", 10, 235, 230, 30)
     EndIf
 
     GUISetState(@SW_SHOW, $hMenuGui)
@@ -403,34 +428,77 @@ Func _ShowContextMenu($bIsFavContext = False)
                 ExitLoop
             Case $btn_Play
                 GUIDelete($hMenuGui)
-                _PlayLoop($iIndex)
+                _PlayLoop($iIndex, False) ; Video
+                ExitLoop
+            Case $btn_PlayAudio
+                GUIDelete($hMenuGui)
+                _PlayLoop($iIndex, True) ; Audio
                 ExitLoop
             Case $btn_DL
                 GUIDelete($hMenuGui)
                 _ShowDownloadDialog($aSearchIds[$iIndex + 1])
                 ExitLoop
+            Case $btn_Channel
+                GUIDelete($hMenuGui)
+                _Action_GoChannel($iIndex)
+                ExitLoop
             Case $btn_Web
                 GUIDelete($hMenuGui)
-                ShellExecute("https://www.youtube.com/watch?v=" & $aSearchIds[$iIndex + 1])
+                _Action_OpenBrowser($iIndex)
                 ExitLoop
             Case $btn_Copy
                 GUIDelete($hMenuGui)
-                Local $sUrl = "https://www.youtube.com/watch?v=" & $aSearchIds[$iIndex + 1]
-                ClipPut($sUrl)
-                MsgBox(64, "Info", "Link copied to clipboard!")
+                _Action_CopyLink($iIndex)
                 ExitLoop
         EndSwitch
     WEnd
 EndFunc
 
-Func _PlayLoop($iCurrentIndex)
+Func _Action_CopyLink($iIndex)
+    If $iIndex < 0 Or $iIndex >= UBound($aSearchIds) - 1 Then Return
+    Local $sUrl = "https://www.youtube.com/watch?v=" & $aSearchIds[$iIndex + 1]
+    ClipPut($sUrl)
+    MsgBox(64, "Info", "Link copied to clipboard!")
+EndFunc
+
+Func _Action_OpenBrowser($iIndex)
+    If $iIndex < 0 Or $iIndex >= UBound($aSearchIds) - 1 Then Return
+    ShellExecute("https://www.youtube.com/watch?v=" & $aSearchIds[$iIndex + 1])
+EndFunc
+
+Func _Action_GoChannel($iIndex)
+    If $iIndex < 0 Or $iIndex >= UBound($aSearchIds) - 1 Then Return
+    Local $sID = $aSearchIds[$iIndex + 1]
+    Local $pid_channel = Run(@ComSpec & ' /c ""' & $YT_DLP_PATH & '" --print "https://www.youtube.com/channel/%(channel_id)s" --no-playlist ' & $sID & '"', @ScriptDir, @SW_HIDE, $STDOUT_CHILD + $STDERR_CHILD)
+    Local $sChannelUrl = ""
+    While ProcessExists($pid_channel)
+        $sChannelUrl &= StdoutRead($pid_channel)
+    WEnd
+    $sChannelUrl = StringStripWS($sChannelUrl, 3)
+    $sChannelUrl = StringRegExpReplace($sChannelUrl, "(?m)^.*(https://www.youtube.com/channel/[^ \r\n]+).*$", "$1")
+    If StringInStr($sChannelUrl, "youtube.com/channel/") Then
+        ShellExecute($sChannelUrl)
+    Else
+        MsgBox(16, "Error", "Cannot get channel URL.")
+    EndIf
+EndFunc
+
+Func _PlayLoop($iCurrentIndex, $bAudioOnly = False)
     While 1
         If $iCurrentIndex < 0 Or $iCurrentIndex >= ($iTotalLoaded) Then ExitLoop
 
         Local $sID = $aSearchIds[$iCurrentIndex + 1]
         Local $sTitle = $aSearchTitles[$iCurrentIndex + 1]
 
-        Local $pid_url = Run(@ComSpec & ' /c ""' & $YT_DLP_PATH & '" -g -f "best[ext=mp4]/best" ' & $sID & '"', @ScriptDir, @SW_HIDE, $STDOUT_CHILD)
+        ; Show Loading Dialog (Matching Searching style)
+        Local $hLoading = GUICreate("Playing...", 250, 80, -1, -1, BitOR($WS_POPUP, $WS_BORDER), BitOR($WS_EX_TOPMOST, $WS_EX_TOOLWINDOW), $hResultsGui)
+        GUICtrlCreateLabel("Loading YouTube Video, please wait...", 10, 25, 230, 30, $SS_CENTER)
+        GUISetBkColor(0xFFFFFF, $hLoading)
+        GUISetState(@SW_SHOW, $hLoading)
+        WinActivate($hLoading) ; Focus for screen readers
+
+        Local $sFormat = $bAudioOnly ? "bestaudio" : "best[ext=mp4]/best"
+        Local $pid_url = Run(@ComSpec & ' /c ""' & $YT_DLP_PATH & '" -g -f "' & $sFormat & '" ' & $sID & '"', @ScriptDir, @SW_HIDE, $STDOUT_CHILD)
         Local $sUrl = ""
         While ProcessExists($pid_url)
             $sUrl &= StdoutRead($pid_url)
@@ -438,63 +506,21 @@ Func _PlayLoop($iCurrentIndex)
         $sUrl = StringStripWS($sUrl, 3)
 
         If $sUrl = "" Then
+            GUIDelete($hLoading)
             MsgBox(16, "Error", "Cannot get stream URL.")
             ExitLoop
         EndIf
 
-        Local $iPID_Play = Run('"' & $FFPLAY_PATH & '" -window_title "' & $sTitle & '" -autoexit -infbuf -x 640 -y 360 "' & $sUrl & '"', @ScriptDir, @SW_SHOW)
+        Local $sAction = _PlayInternal($sUrl, $sTitle, $bAudioOnly, $hLoading, True) ; True = Allow AutoPlay toggle
 
-        Local $hPlayingGui = GUICreate("Now Playing", 300, 70, -1, -1, BitOR($WS_POPUP, $WS_BORDER), $WS_EX_TOPMOST)
-        GUICtrlCreateLabel("Playing:", 10, 5, 280, 20)
-        GUICtrlSetColor(-1, 0xFFFFFF)
-        GUICtrlCreateLabel(StringLeft($sTitle, 40) & "...", 10, 25, 280, 40)
-        GUICtrlSetFont(-1, 10, 600)
-        GUICtrlSetColor(-1, 0x00FF00) ; Green text
-        GUISetBkColor(0x222222, $hPlayingGui)
-        GUISetState(@SW_SHOW, $hPlayingGui)
-
-        Local $sAction = ""
-        While ProcessExists($iPID_Play)
-            If _IsPressed("11", $dll) Then ; CTRL Key
-                If _IsPressed("25", $dll) Then ; LEFT ARROW (Back)
-                    $sAction = "BACK"
-                    ProcessClose($iPID_Play)
-                    ExitLoop
-                EndIf
-                If _IsPressed("27", $dll) Then ; RIGHT ARROW (Next)
-                    $sAction = "NEXT"
-                    ProcessClose($iPID_Play)
-                    ExitLoop
-                EndIf
-            EndIf
-            If _IsPressed("24", $dll) Then ; Home
-                _ReportStatus("Start of track")
-                $sAction = "RESTART"
-                ProcessClose($iPID_Play)
-                ExitLoop
-            EndIf
-            If _IsPressed("23", $dll) Then ; End
-                _ReportStatus("End of track")
-                $sAction = "END"
-                ProcessClose($iPID_Play)
-                ExitLoop
-            EndIf
-            Sleep(50)
-        WEnd
-
-        ; --- Xóa hộp thoại Playing khi video tắt ---
-        GUIDelete($hPlayingGui)
-        ; -------------------------------------------
-
-        If $sAction = "NEXT" Then
+        If $sAction = "NEXT" Or ($sAction = "FINISHED" And $g_bAutoPlay) Then
             $iCurrentIndex += 1
         ElseIf $sAction = "BACK" Then
             $iCurrentIndex -= 1
-        ElseIf $sAction = "RESTART" Then
-            ; Do nothing
-        ElseIf $sAction = "END" Then
-             $iCurrentIndex += 1
+        Elseif $sAction = "RESTART" Then
+            ; Do nothing, loop will restart with same index
         Else
+            ; "STOP", "CLOSE", or "FINISHED" (if auto-play is off)
             ExitLoop
         EndIf
     WEnd
@@ -540,42 +566,206 @@ Func _ShowDownloadDialog($sID)
 EndFunc
 
 Func playmedia($url)
+    ; Show Loading Dialog (Matching Searching style)
+    Local $hLoading = GUICreate("Playing...", 250, 80, -1, -1, BitOR($WS_POPUP, $WS_BORDER), BitOR($WS_EX_TOPMOST, $WS_EX_TOOLWINDOW))
+    GUICtrlCreateLabel("Loading YouTube Video, please wait...", 10, 25, 230, 30, $SS_CENTER)
+    GUISetBkColor(0xFFFFFF, $hLoading)
+    GUISetState(@SW_SHOW, $hLoading)
+
     Local $pid = Run(@ComSpec & ' /c ""' & $YT_DLP_PATH & '" -g -f "best" "' & $url & '""', @ScriptDir, @SW_HIDE, $STDOUT_CHILD)
-    ProcessWaitClose($pid)
-    Local $dlink = StdoutRead($pid)
+    Local $dlink = ""
+    While ProcessExists($pid)
+        $dlink &= StdoutRead($pid)
+    WEnd
     $dlink = StringStripWS($dlink, 3)
 
     If $dlink <> "" Then
-        Local $sCmd = '"' & $FFPLAY_PATH & '" -autoexit -window_title "YouTube Player" -infbuf -x 640 -y 360 "' & $dlink & '"'
-        Local $pid_play = Run($sCmd, @ScriptDir, @SW_SHOW)
-
-        Local $hPlayingGui = GUICreate("Playing", 250, 50, -1, -1, BitOR($WS_POPUP, $WS_BORDER), $WS_EX_TOPMOST)
-        GUICtrlCreateLabel("Now Playing Video...", 10, 15, 230, 20, $SS_CENTER)
-        GUICtrlSetColor(-1, 0xFFFFFF)
-        GUISetBkColor(0x222222, $hPlayingGui)
-        GUISetState(@SW_SHOW, $hPlayingGui)
-
-        While ProcessExists($pid_play)
-            If _IsPressed("24", $dll) Then ; HOME
-                _ReportStatus("Start of track")
-                ProcessClose($pid_play)
-                $pid_play = Run($sCmd, @ScriptDir, @SW_SHOW)
-                Do
-                    Sleep(10)
-                Until Not _IsPressed("24", $dll)
-            EndIf
-            If _IsPressed("23", $dll) Then ; END
-                _ReportStatus("End of track")
-                ProcessClose($pid_play)
-                ExitLoop
-            EndIf
-            Sleep(50)
-        WEnd
-
-        GUIDelete($hPlayingGui)
+        _PlayInternal($dlink, "YouTube Player", False, $hLoading, False)
     Else
+        If $hLoading <> 0 Then GUIDelete($hLoading)
         MsgBox(16, "Error", "Cannot get video stream from this link.")
     EndIf
+EndFunc
+
+Func playaudio($url)
+    ; Show Loading Dialog (Matching Searching style)
+    Local $hLoading = GUICreate("Playing...", 250, 80, -1, -1, BitOR($WS_POPUP, $WS_BORDER), BitOR($WS_EX_TOPMOST, $WS_EX_TOOLWINDOW))
+    GUICtrlCreateLabel("Loading YouTube Audio, please wait...", 10, 25, 230, 30, $SS_CENTER)
+    GUISetBkColor(0xFFFFFF, $hLoading)
+    GUISetState(@SW_SHOW, $hLoading)
+
+    Local $pid = Run(@ComSpec & ' /c ""' & $YT_DLP_PATH & '" -g -f "bestaudio" "' & $url & '""', @ScriptDir, @SW_HIDE, $STDOUT_CHILD)
+    Local $dlink = ""
+    While ProcessExists($pid)
+        $dlink &= StdoutRead($pid)
+    WEnd
+    $dlink = StringStripWS($dlink, 3)
+
+    If $dlink <> "" Then
+        _PlayInternal($dlink, "YouTube Audio Player", True, $hLoading, False)
+    Else
+        If $hLoading <> 0 Then GUIDelete($hLoading)
+        MsgBox(16, "Error", "Cannot get audio stream from this link.")
+    EndIf
+EndFunc
+
+Func _PlayInternal($sUrl, $sTitle, $bAudioOnly = False, $hLoading = 0, $allowAutoPlayToggle = False)
+    Local $iWidth = 640, $iHeight = 360
+    If $bAudioOnly Then
+        $iWidth = 400
+        $iHeight = 150
+    EndIf
+
+    Local $hPlayGui = GUICreate($sTitle, $iWidth, $iHeight + 40, -1, -1, BitOR($WS_CAPTION, $WS_SYSMENU, $WS_POPUP), $WS_EX_TOPMOST)
+    GUISetBkColor(0x000000)
+
+    Local $oWMP = ObjCreate("WMPlayer.OCX.7")
+    If Not IsObj($oWMP) Then
+        If $hLoading <> 0 Then GUIDelete($hLoading)
+        MsgBox(16, "Error", "Windows Media Player ActiveX control could not be created.")
+        GUIDelete($hPlayGui)
+        Return ""
+    EndIf
+
+    GUICtrlCreateObj($oWMP, 0, 0, $iWidth, $iHeight)
+
+    $oWMP.url = $sUrl
+    $oWMP.settings.volume = 100
+    $oWMP.uiMode = "none"
+
+    Local $lblInfo = GUICtrlCreateLabel("Playing: " & $sTitle, 10, $iHeight + 10, $iWidth - 100, 20)
+    GUICtrlSetColor(-1, 0x00FF00)
+    Local $lblAuto = GUICtrlCreateLabel("Auto: ON", $iWidth - 80, $iHeight + 10, 70, 20)
+    GUICtrlSetColor(-1, 0xFFFF00)
+    If (Not $allowAutoPlayToggle) Or (Not $g_bAutoPlay) Then GUICtrlSetState($lblAuto, $GUI_HIDE)
+    If $allowAutoPlayToggle And $g_bAutoPlay Then GUICtrlSetData($lblAuto, "Auto: ON")
+    If $allowAutoPlayToggle And Not $g_bAutoPlay Then GUICtrlSetData($lblAuto, "Auto: OFF")
+
+    GUISetState(@SW_SHOW, $hPlayGui)
+
+    Local $sAction = ""
+    Local $bLoaded = False
+    While 1
+        Local $nMsg = GUIGetMsg()
+        If $nMsg = $GUI_EVENT_CLOSE Then
+            $sAction = "CLOSE"
+            ExitLoop
+        EndIf
+
+        ; Check if loaded to close loading dialog
+        If Not $bLoaded And ($oWMP.playState = 3 Or $oWMP.playState = 2) Then ; Playing or Paused
+            If $hLoading <> 0 Then
+                GUIDelete($hLoading)
+                $hLoading = 0
+            EndIf
+            $bLoaded = True
+        EndIf
+
+        ; Space to Toggle Pause/Play
+        If _IsPressed("20", $dll) Then
+            Local $ps = $oWMP.playState
+            If $ps = 3 Then ; Playing
+                $oWMP.controls.pause()
+                _ReportStatus("Paused")
+            ElseIf $ps = 2 Or $ps = 1 Then ; Paused or Stopped
+                $oWMP.controls.play()
+                _ReportStatus("Playing")
+            EndIf
+            Do
+                Sleep(10)
+            Until Not _IsPressed("20", $dll)
+        EndIf
+
+        ; Enter for Full Screen (Video only)
+        If Not $bAudioOnly And _IsPressed("0D", $dll) Then
+            $oWMP.fullScreen = Not $oWMP.fullScreen
+            _ReportStatus($oWMP.fullScreen ? "Full Screen Mode Enable" : "Full Screen Mode Disable")
+            Do
+                Sleep(10)
+            Until Not _IsPressed("0D", $dll)
+        EndIf
+
+        ; N to Toggle Auto-Play
+        If $allowAutoPlayToggle And _IsPressed("4E", $dll) Then ; 'N' key
+            $g_bAutoPlay = Not $g_bAutoPlay
+            GUICtrlSetData($lblAuto, $g_bAutoPlay ? "Auto: ON" : "Auto: OFF")
+            GUICtrlSetState($lblAuto, $g_bAutoPlay ? $GUI_SHOW : $GUI_SHOW)
+            _ReportStatus($g_bAutoPlay ? "Auto Play Next Track ON" : "Auto Play Next Track OFF")
+            Do
+                Sleep(10)
+            Until Not _IsPressed("4E", $dll)
+        EndIf
+
+        ; Handle shortcuts
+        If _IsPressed("26", $dll) Then ; UP ARROW (Volume Up)
+            $oWMP.settings.volume = ($oWMP.settings.volume + 10 > 100) ? 100 : $oWMP.settings.volume + 10
+            ToolTip("Volume: " & $oWMP.settings.volume, 0, 0)
+            AdlibRegister("_ClearToolTip", 1000)
+            Do
+                Sleep(10)
+            Until Not _IsPressed("26", $dll)
+        EndIf
+        If _IsPressed("28", $dll) Then ; DOWN ARROW (Volume Down)
+            $oWMP.settings.volume = ($oWMP.settings.volume - 10 < 0) ? 0 : $oWMP.settings.volume - 10
+            ToolTip("Volume: " & $oWMP.settings.volume, 0, 0)
+            AdlibRegister("_ClearToolTip", 1000)
+            Do
+                Sleep(10)
+            Until Not _IsPressed("28", $dll)
+        EndIf
+        If _IsPressed("25", $dll) And Not _IsPressed("11", $dll) Then ; LEFT ARROW (Seek Back)
+            $oWMP.controls.currentPosition = ($oWMP.controls.currentPosition - 5 < 0) ? 0 : $oWMP.controls.currentPosition - 5
+            Do
+                Sleep(10)
+            Until Not _IsPressed("25", $dll)
+        EndIf
+        If _IsPressed("27", $dll) And Not _IsPressed("11", $dll) Then ; RIGHT ARROW (Seek Forward)
+            $oWMP.controls.currentPosition = $oWMP.controls.currentPosition + 5
+            Do
+                Sleep(10)
+            Until Not _IsPressed("27", $dll)
+        EndIf
+
+        If _IsPressed("11", $dll) Then ; CTRL Key
+            If _IsPressed("25", $dll) Then ; LEFT ARROW (Back)
+                $sAction = "BACK"
+                ExitLoop
+            EndIf
+            If _IsPressed("27", $dll) Then ; RIGHT ARROW (Next)
+                $sAction = "NEXT"
+                ExitLoop
+            EndIf
+        EndIf
+
+        ; Home Key (Restart track)
+        If _IsPressed("24", $dll) Then ; Home key
+            $oWMP.controls.stop()
+            $oWMP.controls.play()
+            _ReportStatus("Restart Track")
+            Do
+                Sleep(10)
+            Until Not _IsPressed("24", $dll)
+        EndIf
+
+        If _IsPressed("23", $dll) Then ; End
+            $sAction = "STOP"
+            ExitLoop
+        EndIf
+
+        ; Check if finished
+        If $oWMP.playState = 1 And $bLoaded Then ; 1 = Stopped
+             $sAction = "FINISHED"
+             ExitLoop
+        EndIf
+
+        Sleep(50)
+    WEnd
+
+    If $hLoading <> 0 Then GUIDelete($hLoading)
+    $oWMP.controls.stop()
+    $oWMP = 0
+    GUIDelete($hPlayGui)
+    Return $sAction
 EndFunc
 
 Func online_play($url)
@@ -583,9 +773,14 @@ Func online_play($url)
 EndFunc
 
 Func _ReportStatus($sText)
-    ToolTip($sText, 0, 0, "Info", 1)
-    Sleep(1000)
+    ; Center the ToolTip for better visibility and screen reader detection
+    ToolTip($sText, @DesktopWidth / 2, @DesktopHeight / 2, "Status", 1, 1) ; 1 = Balloon, 1 = Center icon
+    AdlibRegister("_ClearToolTip", 1500) ; Slightly longer for reading
+EndFunc
+
+Func _ClearToolTip()
     ToolTip("")
+    AdlibUnRegister("_ClearToolTip")
 EndFunc
 
 Func _Show_About_Window()
@@ -721,9 +916,16 @@ EndFunc
 Func _ShowFavorites()
     GUISetState(@SW_HIDE, $mainform)
 
-    $hFavoritesGui = GUICreate("Favorite Videos", 400, 400)
+    $hFavoritesGui = GUICreate("Favorite Videos", 400, 440)
     GUISetBkColor($COLOR_BLUE)
     $lst_results = GUICtrlCreateList("", 10, 10, 380, 380, BitOR($LBS_NOTIFY, $WS_VSCROLL, $WS_BORDER))
+    Local $btn_go_back = GUICtrlCreateButton("&go back", 10, 400, 380, 30)
+
+    Local $dummy_copy = GUICtrlCreateDummy()
+    Local $dummy_browser = GUICtrlCreateDummy()
+    Local $dummy_channel = GUICtrlCreateDummy()
+    Local $aAccel[3][2] = [["^k", $dummy_copy], ["!b", $dummy_browser], ["!g", $dummy_channel]]
+    GUISetAccelerators($aAccel, $hFavoritesGui)
 
     GUISetState(@SW_SHOW, $hFavoritesGui)
 
@@ -750,11 +952,17 @@ Func _ShowFavorites()
         EndIf
 
         Switch $nMsg
-            Case $GUI_EVENT_CLOSE
+            Case $GUI_EVENT_CLOSE, $btn_go_back
                 GUIDelete($hFavoritesGui)
                 $hFavoritesGui = 0
                 GUISetState(@SW_SHOW, $mainform)
                 Return
+            Case $dummy_copy
+                _Action_CopyLink(_GUICtrlListBox_GetCurSel($lst_results))
+            Case $dummy_browser
+                _Action_OpenBrowser(_GUICtrlListBox_GetCurSel($lst_results))
+            Case $dummy_channel
+                _Action_GoChannel(_GUICtrlListBox_GetCurSel($lst_results))
         EndSwitch
     WEnd
 EndFunc

@@ -32,12 +32,20 @@ We have assigned keyboard shortcuts for you to easily use the software and be fl
 - alt+f: favorite video.
 - alt+p: play video from the link.
 - alt+d: download video from the link.
+- home: beginning of the video
+- end: end of the video
+- enter: Enable/disable full screen.
+- control+k: copy link from clipboard.
+- alt+g: go to channel.
+- alt+b: open in Browser.
 
 ### option:
 
 After pressing enter on the search results, there will be a few more small options.
 
 - play button: activate play video.
+- Play as audio button: allows you to listen to music as audio.
+- Go to channel button: You can go to the official you tube channel.
 - download button: download video from you tube.
   - Select Format: You can choose from many different formats.
   - download button: when press, activate download video.
@@ -50,6 +58,6 @@ If you would like to provide feedback, you can contact me through the following 
 
 - Phone: 0366934510
 - Email:
-[contact from here](https://mail.google.com/mail/u/0/?fs=1&tf=cm&source=mailto&to=vodinhhungtnlg@gmail.com)
+[contact from here}(https://mail.google.com/mail/u/0/?fs=1&tf=cm&source=mailto&to=vodinhhungtnlg@gmail.com)
 - Facebook:
 [Follow developer](https://www.facebook.com/profile.php?id=100083295244149)

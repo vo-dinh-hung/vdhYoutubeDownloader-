@@ -21,9 +21,17 @@ alt+s: Search on YouTube.
 alt+f: favorite video.
 alt+p: play video from the link.
 alt+d: download video from the link.
+home: beginning of the video
+end: end of a video
+enter: Enable/disable full screen.
+control+k: copy link from clipboard.
+alt+g: go to channel.
+alt+b: open in Browser.
 option:
 After pressing enter on the search results, there will be a few more small options.
 play button: activate play video.
+Play as audio button: allows you to listen to music as audio.
+Go to channel button: You can go to the official you tube channel.
 download button: download video from you tube.
 Select Format: You can choose from many different formats.
 download button: when press, activate download video.

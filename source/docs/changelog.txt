@@ -1,3 +1,56 @@
+changes for version 1.4
+- new feature:
+  - add main menu
+  - configuration is now saved when running the application.
+  - add settings:
+    - You can now automatically check for updates when you start the software.
+    - The application starts with window.
+    - Now you can turn on and off the feature to automatically receive links from the clipboard.
+    - You can use control+tab to quickly move between tabs, control+shift+tab to go back to the previous tab.
+    - add backup button: You can save your configuration and take it anywhere to use.
+    - add restore button: you can restore the entire configuration if the application has very serious problems.
+    - Skip silence (Recommended only for music): Silence will be ignored when moving to the next video or returning to the previous video.
+    - Speak player status notifications: When this is selected all notifications in the player will be read clearly from the screen reader. If you turn it off, it will be completely silent, making you feel more comfortable when watching videos.
+    - After Video Finishes: allows you to choose actions to be performed in the music player including:
+        - Close the player: The music player will close after the video ends.
+        - Replay video: you can allow the video to playback multiple times.
+        - Do nothing: You can roughly understand that the player will do nothing if this action is selected.
+    - Fast Forward Interval (Seconds): You can customize the fast forward time while watching a video.
+    - Rewind Interval (Seconds): You can adjust the rewind time here.
+  - Added a time jump system so you can jump to any place in the video you want.
+  - Added start and end point selection in a video to split into many different music files.
+  - Added advanced filtering when searching results.
+  - smart playlist:
+    - When you press enter on a result in the form of a playlist, a dialog box will appear to download the videos in that list.
+    - If you press enter on each of those videos, the player will be launched to start watching the video.
+    - When you use the keys to skip videos or go back, it will still follow the videos as a playlist in the playlist loading box.
+    - To close the playlist box, please press the close button or use the ESC key.
+- New shortcut:
+  - control+shift+s: activate settings
+  - control+g: go to time (only valid in player interface).
+  - mở ngoặc vuông [: Start selection.
+  - đóng ngoặc vuông ]: End selection.
+  - alt+o: go to option menu (Use only in music player).
+  - control+s: Save selection as.
+  - control+shift+d: activate Video Description...
+- fix bug:
+  - The entire software has been optimized to make your experience more comfortable.
+  - Fixed startup with window error when sound packs were not started correctly.
+  - Fixed a bug related to the return to main window button.
+  - Redesigned the context menu interface. it will be passed into the music player to return the enter key for the play action.
+  - Fixed a bug related to buffer leaks.
+  - The commenting system has been significantly upgraded. Now you can only copy a single comment instead of all of them like before.
+  - Improved overall latency for overall software acceleration.
+  - readme has been updated.
+  - Updated libraries to hide unnecessary windows.
+  - The application will run under administrator rights when you call it from anywhere on the computer.
+  - Fixed the error of not being able to enter text in the input boxes. Please note that to be able to type text when running under administrator rights, please set the Vietnamese percussion instruments to run under administrator rights to be effective.
+  - Fixed an issue where playlists could not be loaded in video viewing history.
+  - Now all actions in the filter are working properly.
+  - Fixed all errors with control+tab and control+shift+tab keyboard shortcuts.
+  - Added property page to settings so you know where you are.
+  - changed the search interface. Now the combo box will appear before the search button.
+
 changes for version 1.3
 - new feature:
   - Added a 2-second delay for better accessibility and implemented automatic loading of more results as you scroll down.

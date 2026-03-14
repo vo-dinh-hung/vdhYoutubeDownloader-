@@ -46,8 +46,15 @@ S / D / F: Change Speed (Fast / Normal / Slow).
 Ctrl + Shift + E to toggle Cinema Mode (Fullscreen).
 ctrl+shift+c: activate comments video.
 ctrl+enter: play as audio.
-context menu
-After pressing enter on the search results, there will be a few more small context menu:
+control+shift+s: activate settings
+control+g: go to time (only valid in player interface).
+mở ngoặc vuông [: Start selection.
+đóng ngoặc vuông ]: End selection.
+alt+o: go to option menu (Use only in music player).
+control+s: Save selection as.
+control+shift+d: Video Description...
+option menu:
+you can access in music player.
 play: activate play video.
 Play as audio : allows you to listen to music as audio.
 Go to channel: You can go to the official you tube channel.
@@ -59,6 +66,28 @@ Open in Browser: Open search results in the default browser.
 Add to Favorite: You can add the videos you want to listen to to your favorites list.
 Video description: This section is for reading the video description. You can also export it to a .txt or .html file for reading.
 video comments: Here you can read, copy and export files from all comments in a video you have selected.
+go to time: allows you to jump to any music in a video.
+settings
+You can customize your favorite features in this settings section.
+General  tab
+This tab will give you a few options:
+Automatically check for updates on startup.
+Start program automatically after login.
+Automatically detect YouTube links in clipboard on launch.
+Player  tab
+In this tab there will be a number of options used for the music player:
+Skip silence (Recommended only for music).
+Speak player status notifications.
+After Video Finishes:
+Close the player
+Replay video
+Do nothing
+Fast Forward Interval (Seconds).
+Rewind Interval (Seconds).
+Data  tab
+In this tab there will be a few options related to configuration data:
+Backup Configuration.
+Restore Configuration.
 Contact Information:
 If you would like to provide feedback, you can contact me through the following methods:
 Phone: 0366934510

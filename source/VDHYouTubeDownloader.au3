@@ -118,7 +118,17 @@ $mainform = GUICreate("VDH_YouTube_Downloader version" & $version, 300, 250)
 GUISetBkColor($COLOR_BLUE)
 GUISetFont(9, 400, 0, "Segoe UI")
 
-$label = GUICtrlCreateLabel("Press the Alt key to go to the help menu, then press tab to quick access.", 10, 20, 280, 30, BitOR($SS_LEFT, $WS_TABSTOP))
+Local $sGreeting = "Good Evening"
+If @HOUR >= 0 And @HOUR < 12 Then
+    $sGreeting = "Good morning"
+ElseIf @HOUR >= 12 And @HOUR < 18 Then
+    $sGreeting = "Good afternoon"
+ElseIf @HOUR >= 18 And @HOUR < 22 Then
+    $sGreeting = "Good evening"
+Else
+    $sGreeting = "Good night"
+EndIf
+$label = GUICtrlCreateLabel($sGreeting & " and warm welcome to VDHYouTubeDownloader application.", 10, 20, 280, 50, BitOR($SS_LEFT, $WS_TABSTOP))
 GUICtrlSetFont(-1, 14, 800)
 GUICtrlSetColor(-1, 0xFFFFFF)
 
